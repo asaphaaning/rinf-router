@@ -8,7 +8,11 @@
 //! last arguments are meant for extractors while the last is meant for the Dart
 //! signal**.
 
-use {crate::extractor::FromRequest, rinf::DartSignal, std::future::Future};
+use {
+    crate::{extractor::FromRequest, logging::log},
+    rinf::DartSignal,
+    std::future::Future,
+};
 
 macro_rules! impl_handler {
     (
@@ -27,16 +31,19 @@ macro_rules! impl_handler {
     {
         type Future = std::pin::Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 
+        #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "info"))]
         fn handle(self, state: S) -> Self::Future {
             Box::pin(async move {
                 let state = &state;
-
                 let handler = self;
+
+                log!(info, handler = %std::any::type_name::<$last>(), "Starting handler");
                 while let Some($last) = $last::get_dart_signal_receiver().recv().await {
+                    log!(debug, handler = %std::any::type_name::<$last>(), "Received signal");
+
                     $(
                       let $arg = $arg::from_request(&$last.message, state).await;
                     )*
-
 
                     (handler.clone())($($arg,)* $last.message).await;
                 }
