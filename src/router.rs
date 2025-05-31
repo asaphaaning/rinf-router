@@ -31,7 +31,7 @@
 //! ```
 
 use {
-    crate::{BoxedHandlerFuture, handler::Handler},
+    crate::{BoxedHandlerFuture, handler::Handler, logging::log},
     std::marker::PhantomData,
     tokio::task::JoinSet,
 };
@@ -184,6 +184,7 @@ where
     }
 
     /// Adds a signal handler to the [`Router`]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "info"))]
     pub fn route<T, H>(mut self, h: H) -> Self
     where
         H: Handler<T, S> + Send + Sync + 'static,
@@ -193,6 +194,7 @@ where
     }
 
     /// Finish registration – the only method that still knows about `S`.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "info"))]
     pub fn with_state<S2>(self, state: S) -> Router<S2> {
         Router {
             routes: self.routes.with_state(state),
@@ -204,8 +206,11 @@ where
 impl Router {
     /// Consume `self`, spawn every handler into a single `JoinSet`,
     /// and return the running router (`Router<()>`).
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "info"))]
     pub async fn run(self) {
         let mut set = JoinSet::new();
+
+        log!(info, "Starting router");
 
         self.routes.run(&mut set);
 
@@ -231,6 +236,7 @@ where
     }
 
     /// Append a new handler to the routing table.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn route(&mut self, handler: BoxedIntoRoute<S>) -> &mut Self {
         self.0.push(handler);
         self
@@ -238,6 +244,7 @@ where
 
     /// Inject state required by handlers that define said state through their
     /// signature and have been registered through [`Self::route`].
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn with_state<S2>(self, state: S) -> Routes<S2> {
         let vec = self
             .0
@@ -251,6 +258,7 @@ where
 
 impl Routes {
     /// Spawn every route contained in `self` into the provided [`JoinSet`].
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "info"))]
     fn run(self, set: &mut JoinSet<()>) {
         for route in self.0.into_iter() {
             route.spawn_into(set);

@@ -26,6 +26,7 @@ use std::{future::Future, pin::Pin};
 
 pub mod extractor;
 pub mod handler;
+pub(crate) mod logging;
 pub mod router;
 
 /// A boxed [`Future`] returned by any handler.

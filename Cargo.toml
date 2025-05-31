@@ -11,12 +11,19 @@ keywords = [
     "flutter",
     "router"
 ]
+
 categories = [
     "asynchronous",
     "rust-patterns",
 ]
+
 license = "Apache-2.0"
 rust-version = "1.85.0"
+
+[features]
+default = []
+logging = ["dep:tracing", "tracing/log"]
+tracing = ["logging", "tracing/tracing-attributes", "tracing/attributes"]
 
 [dependencies]
 async-trait = "0.1"
@@ -28,7 +35,8 @@ tokio = { version = "1.41", features = [
     "sync",
     "time"
 ] }
+tracing = { version = "0.1", default-features = false, optional = true }
 
 [dev-dependencies]
-serial_test = "3.2"
 futures = "0.3"
+serial_test = "3.2"

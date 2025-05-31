@@ -77,6 +77,7 @@ impl<T, S> FromRequest<T, S> for State<S>
 where
     S: Clone + Send + Sync + 'static,
 {
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip(state), level = "trace"))]
     async fn from_request(_: &T, state: &S) -> Self {
         Self(state.clone())
     }
