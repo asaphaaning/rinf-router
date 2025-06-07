@@ -9,7 +9,8 @@
 //! signal**.
 
 use {
-    crate::{extractor::FromRequest, logging::log},
+    crate::{extractor::FromRequest, into_response::IntoResponse, logging::log},
+    futures::future::BoxFuture,
     rinf::DartSignal,
     std::future::Future,
 };
@@ -19,20 +20,23 @@ macro_rules! impl_handler {
         [$($arg:ident),*], $last:ident
     ) => {
     #[allow(non_snake_case, unused_variables)]
-    impl<F, Fut $(,$arg)*, $last, S> Handler<($($arg,)* $last,), S> for F
+    impl<F, Fut, R $(,$arg)*, $last, S> Handler<($($arg,)* $last,), S> for F
     where
         F: FnOnce($($arg,)* $last) -> Fut + Clone + Send + 'static,
-        Fut: Future<Output = ()> + Send,
+        Fut: Future<Output = R> + Send,
         S: Send + Sync + 'static,
+        R: IntoResponse,
         $(
           $arg: FromRequest<$last, S> + Send,
         )*
         $last: DartSignal + Send,
     {
-        type Future = std::pin::Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
+        type Future = BoxFuture<'static, ()>;
 
         #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "info"))]
         fn handle(self, state: S) -> Self::Future {
+            use ::rinf::RustSignal as _;
+
             Box::pin(async move {
                 let state = &state;
                 let handler = self;
@@ -45,7 +49,9 @@ macro_rules! impl_handler {
                       let $arg = $arg::from_request(&$last.message, state).await;
                     )*
 
-                    (handler.clone())($($arg,)* $last.message).await;
+                    let res = (handler.clone())($($arg,)* $last.message).await.into_response();
+
+                    res.send_signal_to_dart();
                 }
             })
         }
@@ -92,7 +98,7 @@ pub trait Handler<T, S>: Clone + Send {
     ///
     /// The future returned by `handle` performs the following steps:
     ///
-    /// 1. Obtains the global receiver for the associated signal via `<Signal as
+    /// 1. Gets the global receiver for the associated signal via `<Signal as
     ///    DartSignal>::get_dart_signal_receiver()`.
     /// 2. Waits for incoming messages in an infinite loop.
     /// 3. For every message, builds each extractor by calling
@@ -107,16 +113,19 @@ pub trait Handler<T, S>: Clone + Send {
 }
 
 /// The empty handler -- useful for testing.
-impl<F, Fut, S> Handler<(), S> for F
+impl<F, Fut, R, S> Handler<(), S> for F
 where
     F: FnOnce() -> Fut + Clone + Send + 'static,
-    Fut: Future<Output = ()> + Send,
+    Fut: Future<Output = R> + Send,
     S: Send + Sync + 'static,
+    R: IntoResponse,
 {
-    type Future = std::pin::Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
+    type Future = BoxFuture<'static, ()>;
 
     fn handle(self, _: S) -> Self::Future {
-        Box::pin(async move { self().await })
+        Box::pin(async move {
+            self().await;
+        })
     }
 }
 
@@ -153,9 +162,30 @@ mod tests {
     use super::*;
 
     mod handler {
-        use {super::*, crate::State, rinf::DartSignal, serde::Deserialize};
+        use {
+            super::*,
+            crate::State,
+            rinf::{DartSignal, RustSignal},
+            serde::{Deserialize, Serialize},
+        };
 
-        #[derive(Debug, Deserialize, DartSignal)]
+        fn assert_handler<T, S, H: Handler<T, S>>(handler: H) -> H {
+            handler
+        }
+
+        #[tokio::test]
+        #[allow(unused_must_use)]
+        async fn handlers() {
+            assert_handler::<_, (), _>(empty_handler);
+            assert_handler::<_, (), _>(normal_handler);
+            assert_handler::<_, (), _>(async || {});
+            assert_handler(handler_with_state);
+            assert_handler(handler_with_state_and_response);
+            assert_handler(handler_with_state_and_option_response);
+            assert_handler(handler_with_state_and_result_response);
+        }
+
+        #[derive(Debug, Serialize, Deserialize, DartSignal, RustSignal)]
         struct Signal {
             _message: String,
         }
@@ -163,16 +193,21 @@ mod tests {
         async fn empty_handler() {}
         async fn normal_handler(_: Signal) {}
         async fn handler_with_state(State(_): State<String>, _: Signal) {}
-
-        #[tokio::test]
-        async fn handlers() {
-            assert_handler::<_, (), _>(empty_handler);
-            assert_handler::<_, (), _>(normal_handler);
-            assert_handler(handler_with_state);
+        async fn handler_with_state_and_response(State(_): State<String>, _: Signal) -> (Signal,) {
+            unimplemented!()
+        }
+        async fn handler_with_state_and_option_response(
+            State(_): State<String>,
+            _: Signal,
+        ) -> Option<()> {
+            None
         }
 
-        fn assert_handler<T, S, H: Handler<T, S>>(handler: H) -> H {
-            handler
+        async fn handler_with_state_and_result_response(
+            State(_): State<String>,
+            _: Signal,
+        ) -> Result<(), (Signal,)> {
+            Ok(())
         }
     }
 }
