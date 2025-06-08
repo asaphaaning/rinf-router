@@ -1,6 +1,6 @@
 [package]
 name = "rinf-router"
-version = "1.0.0"
+version = "1.1.0"
 description = "Router and handler framework for RINF-based Flutter <> Rust apps"
 authors = ["Frederik Haaning <fh@frederikhaaning.dk>"]
 edition = "2024"
@@ -27,6 +27,7 @@ tracing = ["logging", "tracing/tracing-attributes", "tracing/attributes"]
 
 [dependencies]
 async-trait = "0.1"
+futures = "0.3"
 rinf = "8.3.0"
 serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.41", features = [
@@ -38,5 +39,4 @@ tokio = { version = "1.41", features = [
 tracing = { version = "0.1", default-features = false, optional = true }
 
 [dev-dependencies]
-futures = "0.3"
 serial_test = "3.2"

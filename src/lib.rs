@@ -26,6 +26,7 @@ use std::{future::Future, pin::Pin};
 
 pub mod extractor;
 pub mod handler;
+pub mod into_response;
 pub(crate) mod logging;
 pub mod router;
 
@@ -34,4 +35,4 @@ type BoxedHandlerFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
 
 #[doc(hidden)]
 pub use rinf;
-pub use {extractor::State, router::Router};
+pub use {extractor::State, into_response::IntoResponse, router::Router};
