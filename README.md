@@ -133,3 +133,109 @@ Enjoy – and feel free to open an issue or PR if you spot anything that
 could be improved!
 
 ---
+
+## **Appendix: Return Types & Responses**
+`rinf-router` provides a flexible system for sending data back to Dart from your handlers. Understanding how return types work will help you build more ergonomic and maintainable applications.
+### **How It Works**
+When your handler returns a value, `rinf-router` automatically:
+1. **Converts** the return value using the `IntoResponse` trait
+2. **Extracts** the underlying `RustSignal`
+3. **Sends** it to Dart via `send_signal_to_dart()`
+
+This happens transparently—you just return what you need, and the framework handles the rest!
+### **Built-in Return Types**
+#### **1. Unit Type `()` - Nothing to Send**
+``` rust
+async fn fire_and_forget_handler(cmd: DeleteCommand) {
+    // Perform some action, but don't send anything back
+    database.delete(cmd.id).await;
+    // Returning () sends nothing to Dart
+}
+```
+#### **2. Tuple `(T,)` - Send a Signal**
+The classic RINF pattern for sending signals back to Dart:
+``` rust
+async fn classic_handler(req: GetUserRequest) -> (UserResponse,) {
+    let user = database.get_user(req.id).await;
+    (UserResponse { user },)  // ✅ Sent to Dart
+}
+```
+#### **3. `Option<T>` - Conditional Responses**
+Send a signal only when you have data:
+``` rust
+async fn maybe_respond(req: SearchRequest) -> Option<(SearchResults,)> {
+    let results = search_engine.search(&req.query).await;
+
+    if results.is_empty() {
+        None  // ❌ Nothing sent to Dart
+    } else {
+        Some((SearchResults { results },))  // ✅ Sent to Dart
+    }
+}
+```
+#### **4. `Result<T, E>` - Error Handling**
+Handle success and error cases elegantly:
+``` rust
+async fn fallible_handler(req: PaymentRequest) -> Result<(PaymentSuccess,), (PaymentError,)> {
+    match payment_processor.charge(&req).await {
+        Ok(transaction) => Ok((PaymentSuccess { transaction },)),     // ✅ Success sent to Dart
+        Err(err) => Err((PaymentError { reason: err.to_string() },)), // ❌ Error sent to Dart
+    }
+}
+```
+#### **5. `DontSend<T>` - Keep Data in Rust**
+Sometimes you need a return type for control flow, but don't want to send anything to Dart:
+``` rust
+use rinf_router::into_response::DontSend;
+
+async fn internal_handler(cmd: LogCommand) -> DontSend<String> {
+    let log_entry = format!("User action: {}", cmd.action);
+    logger.write(&log_entry).await;
+
+    DontSend(log_entry)  // ❌ Log stays in Rust, nothing sent to Dart
+}
+```
+### **Direct Return**
+For the cleanest API, use the macro to return signals directly without tuple wrapping: `enable_direct_return!`
+``` rust
+use rinf_router::enable_direct_return;
+
+#[derive(Serialize, Deserialize, RustSignal, DartSignal)]
+struct TodoList {
+    items: Vec<TodoItem>,
+    pending_count: u32,
+}
+
+// Enable direct return for this type
+enable_direct_return!(TodoList);
+
+async fn get_todos(State(state): State<AppState>, _: GetTodosCommand) -> TodoList {
+    let todos = state.todos.lock().await;
+    TodoList {
+        items: todos.clone(),
+        pending_count: todos.iter().filter(|t| !t.completed).count() as u32,
+    }  // ✅ Clean return - automatically sent to Dart!
+}
+```
+### **Response Flow Diagram**
+``` 
+Handler Return → IntoResponse → RustSignal → send_signal_to_dart() → Dart
+     ↓              ↓              ↓              ↓
+   MyData   →  (MyData,)    →   MyData    →    Flutter
+   None     →   DontSend    →   DontSend   →     ❌ 
+   Ok(data) →  Either::A    →    data     →    Flutter
+   Err(e)   →  Either::B    →     e       →    Flutter
+```
+### **Custom Return Types**
+You can implement for your own types: `IntoResponse`
+``` rust
+impl IntoResponse for MyCustomType {
+    type Response = MySignal;  // Must implement RustSignal
+
+    fn into_response(self) -> Self::Response {
+        MySignal {
+            data: self.process(),
+        }
+    }
+}
+```
