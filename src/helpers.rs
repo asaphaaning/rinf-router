@@ -10,7 +10,7 @@
 /// ```
 /// use rinf::{RustSignal, DartSignal};
 /// use serde::{Serialize, Deserialize};
-/// use rinf_router::enable_direct_return;
+/// use rinf_router::ergonomic_return;
 /// 
 /// #[derive(Serialize, Deserialize, RustSignal, DartSignal)]
 /// struct TodoList {
@@ -18,7 +18,7 @@
 /// }
 /// 
 /// // Enable direct return for TodoList
-/// enable_direct_return!(TodoList);
+/// ergonomic_return!(TodoList);
 /// 
 /// // Now you can return TodoList directly
 /// async fn handler() -> TodoList {
@@ -26,7 +26,7 @@
 /// }
 /// ```
 #[macro_export]
-macro_rules! enable_direct_return {
+macro_rules! ergonomic_return {
     ($type:ty) => {
         impl $crate::into_response::IntoResponse for $type {
             type Response = $type;
@@ -50,7 +50,7 @@ mod tests {
     }
 
     // Enable direct return for our test signal
-    crate::enable_direct_return!(DirectReturnTestSignal);
+    crate::ergonomic_return!(DirectReturnTestSignal);
 
     #[test]
     fn test_direct_return_macro() {
