@@ -1,32 +1,32 @@
 //! Helper utilities for ergonomic signal handling
 
 /// A macro that enables direct return of RustSignal types from handlers
-/// 
+///
 /// This macro is used to implement IntoResponse for a specific RustSignal type,
 /// allowing it to be returned directly from handlers without wrapping in tuples.
-/// 
+///
 /// # Example
-/// 
+///
 /// ```
 /// use rinf::{RustSignal, DartSignal};
 /// use serde::{Serialize, Deserialize};
-/// use rinf_router::ergonomic_return;
-/// 
+/// use rinf_router::enable_direct_return;
+///
 /// #[derive(Serialize, Deserialize, RustSignal, DartSignal)]
 /// struct TodoList {
 ///     items: Vec<String>,
 /// }
-/// 
+///
 /// // Enable direct return for TodoList
-/// ergonomic_return!(TodoList);
-/// 
+/// enable_direct_return!(TodoList);
+///
 /// // Now you can return TodoList directly
 /// async fn handler() -> TodoList {
 ///     TodoList { items: vec![] }
 /// }
 /// ```
 #[macro_export]
-macro_rules! ergonomic_return {
+macro_rules! enable_direct_return {
     ($type:ty) => {
         impl $crate::into_response::IntoResponse for $type {
             type Response = $type;
@@ -50,7 +50,7 @@ mod tests {
     }
 
     // Enable direct return for our test signal
-    crate::ergonomic_return!(DirectReturnTestSignal);
+    crate::enable_direct_return!(DirectReturnTestSignal);
 
     #[test]
     fn test_direct_return_macro() {
