@@ -114,6 +114,7 @@ mod private {
 #[derive(Serialize)]
 pub struct DontSend<T = ()>(pub T);
 
+
 impl<T> RustSignal for DontSend<T>
 where
     T: Serialize,

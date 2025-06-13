@@ -11,9 +11,9 @@
 //   └─with_state(StateB value)       -> Router<_>   // StateB sealed in
 //   ...
 //! ```
-//! 
+//!
 //! The snippet below shows the smallest possible router.
-//! It registers a single “do-nothing” handler and then starts the router.
+//! It registers a single "do-nothing" handler and then starts the router.
 //! ```rust no_run
 //! use rinf_router::Router;
 //!
@@ -33,8 +33,13 @@
 use {
     crate::{BoxedHandlerFuture, handler::Handler, logging::log},
     std::marker::PhantomData,
-    tokio::task::JoinSet,
 };
+
+#[cfg(not(test))]
+use crate::tokio::task::JoinSet;
+
+#[cfg(test)]
+use tokio::task::JoinSet;
 
 /// Type-erased [`Handler`] implementation can be wrapped in a
 /// [`Box<dyn ErasedBoxedHandler<S>>`], stored in a collection and executed
@@ -76,7 +81,7 @@ where
 ///   [`MakeBoxedHandler`], or
 /// * an already-prepared task [`BoxedIntoRoute::Route`].
 enum BoxedIntoRoute<S> {
-    /// Temporary “route” that still needs `state`.
+    /// Temporary "route" that still needs `state`.
     MakeBoxedHandler(Box<dyn ErasedBoxedHandler<S>>),
     /// Route, primed and ready to serve requests.
     Route(Box<dyn Routable>),
@@ -125,6 +130,10 @@ where
     F: FnOnce() -> BoxedHandlerFuture + Send + Sync + 'static,
 {
     fn spawn_into(self: Box<Self>, set: &mut JoinSet<()>) {
+        #[cfg(not(test))]
+        set.spawn(async move { self().await });
+
+        #[cfg(test)]
         set.spawn(async move { self().await });
     }
 }
@@ -134,6 +143,10 @@ impl BoxedIntoRoute<()> {
     fn spawn_into(self, set: &mut JoinSet<()>) {
         match self {
             Self::MakeBoxedHandler(boxed_handler) => {
+                #[cfg(not(test))]
+                set.spawn(boxed_handler.handle(()));
+
+                #[cfg(test)]
                 set.spawn(boxed_handler.handle(()));
             },
             BoxedIntoRoute::Route(route) => route.spawn_into(set),
@@ -215,6 +228,15 @@ impl Router {
         self.routes.run(&mut set);
 
         // Drive the set forever.  If any task finishes, we just keep waiting;
+        #[cfg(not(test))]
+        while let Some(res) = set.join_next().await {
+            #[allow(clippy::redundant_pattern_matching)]
+            if let Err(_) = res {
+                // Log errors
+            }
+        }
+
+        #[cfg(test)]
         while let Some(res) = set.join_next().await {
             #[allow(clippy::redundant_pattern_matching)]
             if let Err(_) = res {

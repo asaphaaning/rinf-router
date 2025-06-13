@@ -1,3 +1,4 @@
+
 #![doc = include_str!("../README.md")]
 #![allow(clippy::module_name_repetitions, clippy::new_without_default)]
 #![warn(
@@ -26,9 +27,24 @@ use std::{future::Future, pin::Pin};
 
 pub mod extractor;
 pub mod handler;
+pub mod helpers;
 pub mod into_response;
 pub(crate) mod logging;
 pub mod router;
+
+#[cfg(not(all(
+    target_arch = "wasm32",
+    target_vendor = "unknown",
+    target_os = "unknown"
+)))]
+pub(crate) use tokio;
+
+#[cfg(all(
+    target_arch = "wasm32",
+    target_vendor = "unknown",
+    target_os = "unknown"
+))]
+pub(crate) use tokio_with_wasm::alias as tokio;
 
 /// A boxed [`Future`] returned by any handler.
 type BoxedHandlerFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
