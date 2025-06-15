@@ -33,7 +33,6 @@
 use {
     crate::{BoxedHandlerFuture, handler::Handler, logging::log},
     std::marker::PhantomData,
-    tokio::task::JoinSet,
 };
 
 /// Type-erased [`Handler`] implementation can be wrapped in a
@@ -79,7 +78,7 @@ enum BoxedIntoRoute<S> {
     /// Temporary “route” that still needs `state`.
     MakeBoxedHandler(Box<dyn ErasedBoxedHandler<S>>),
     /// Route, primed and ready to serve requests.
-    Route(Box<dyn Routable>),
+    Route(BoxedHandlerFuture),
 }
 
 impl<S> BoxedIntoRoute<S> {
@@ -102,7 +101,7 @@ impl<S> BoxedIntoRoute<S> {
     {
         match self {
             Self::MakeBoxedHandler(boxed_handler) => {
-                BoxedIntoRoute::Route(Box::new(move || boxed_handler.handle(state.clone())))
+                BoxedIntoRoute::Route(boxed_handler.handle(state))
             },
 
             BoxedIntoRoute::Route(route) => BoxedIntoRoute::Route(route),
@@ -110,34 +109,13 @@ impl<S> BoxedIntoRoute<S> {
     }
 }
 
-/// Describes something that turns a closure or function pointer into something
-/// that can be *spawned* into a Tokio [`JoinSet`].
-///
-/// Users never implement this manually; it is blanket-implemented for
-/// any `FnOnce() -> BoxedHandlerFuture`.
-trait Routable: Send + Sync + 'static {
-    /// Take ownership and spawn the underlying future into `set`.
-    fn spawn_into(self: Box<Self>, set: &mut JoinSet<()>);
-}
-
-impl<F> Routable for F
-where
-    F: FnOnce() -> BoxedHandlerFuture + Send + Sync + 'static,
-{
-    fn spawn_into(self: Box<Self>, set: &mut JoinSet<()>) {
-        set.spawn(async move { self().await });
-    }
-}
-
 impl BoxedIntoRoute<()> {
     /// Used when calling [`Router::run`], starting all the handlers.
-    fn spawn_into(self, set: &mut JoinSet<()>) {
+    fn into_handler_future(self) -> BoxedHandlerFuture {
         match self {
-            Self::MakeBoxedHandler(boxed_handler) => {
-                set.spawn(boxed_handler.handle(()));
-            },
-            BoxedIntoRoute::Route(route) => route.spawn_into(set),
-        };
+            Self::MakeBoxedHandler(boxed_handler) => boxed_handler.handle(()),
+            BoxedIntoRoute::Route(route) => route,
+        }
     }
 }
 
@@ -208,19 +186,43 @@ impl Router {
     /// and return the running router (`Router<()>`).
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "info"))]
     pub async fn run(self) {
-        let mut set = JoinSet::new();
-
         log!(info, "Starting router");
 
-        self.routes.run(&mut set);
+        #[cfg(any(feature = "tokio-rt", feature = "tokio-rt-multi-thread"))]
+        self.run_with_tokio().await;
 
-        // Drive the set forever.  If any task finishes, we just keep waiting;
+        #[cfg(not(any(feature = "tokio-rt", feature = "tokio-rt-multi-thread")))]
+        self.run_with_futures().await;
+    }
+
+    #[cfg(any(feature = "tokio-rt", feature = "tokio-rt-multi-thread"))]
+    async fn run_with_tokio(self) {
+        let mut set = tokio::task::JoinSet::new();
+
+        for route in self.routes.0.into_iter() {
+            set.spawn(route.into_handler_future());
+        }
+
         while let Some(res) = set.join_next().await {
             #[allow(clippy::redundant_pattern_matching)]
             if let Err(_) = res {
                 // Log errors
             }
         }
+    }
+
+    #[cfg(not(any(feature = "tokio-rt", feature = "tokio-rt-multi-thread")))]
+    async fn run_with_futures(self) {
+        use futures::StreamExt;
+
+        let mut routes = self
+            .routes
+            .0
+            .into_iter()
+            .map(BoxedIntoRoute::into_handler_future)
+            .collect::<futures::stream::FuturesUnordered<_>>();
+
+        while routes.next().await.is_some() {}
     }
 }
 
@@ -253,16 +255,6 @@ where
             .collect();
 
         Routes(vec)
-    }
-}
-
-impl Routes {
-    /// Spawn every route contained in `self` into the provided [`JoinSet`].
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "info"))]
-    fn run(self, set: &mut JoinSet<()>) {
-        for route in self.0.into_iter() {
-            route.spawn_into(set);
-        }
     }
 }
 
