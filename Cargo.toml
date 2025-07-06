@@ -1,50 +1,38 @@
 [package]
-name = "rinf-router"
-version = "1.2.0"
+authors     = [ "Frederik Haaning <fh@frederikhaaning.dk>" ]
 description = "Router and handler framework for RINF-based Flutter <> Rust apps"
-authors = ["Frederik Haaning <fh@frederikhaaning.dk>"]
-edition = "2024"
-repository = "https://github.com/asaphaaning/rinf-router"
-readme = "README.md"
-keywords = [
-    "rinf",
-    "flutter",
-    "router"
-]
+edition     = "2024"
+keywords    = [ "rinf", "flutter", "router" ]
+name        = "rinf-router"
+readme      = "README.md"
+repository  = "https://github.com/asaphaaning/rinf-router"
+version     = "1.2.0"
 
-categories = [
-    "asynchronous",
-    "rust-patterns",
-]
+categories = [ "asynchronous", "rust-patterns" ]
 
-license = "Apache-2.0"
+license      = "Apache-2.0"
 rust-version = "1.85.0"
 
 [features]
-default = ["rt-agnostic"]
-logging = ["dep:tracing", "tracing/log"]
-rt-agnostic = ["dep:futures"]
-tokio-rt = ["dep:tokio", "tokio/rt"]
-tokio-rt-multi-thread = ["dep:tokio", "tokio/rt-multi-thread"]
-tracing = ["logging", "tracing/tracing-attributes", "tracing/attributes"]
+default               = [ "rt-agnostic" ]
+logging               = [ "dep:tracing", "tracing/log" ]
+rt-agnostic           = [ "dep:futures" ]
+tokio-rt              = [ "dep:tokio", "tokio/rt" ]
+tokio-rt-multi-thread = [ "dep:tokio", "tokio/rt-multi-thread" ]
+tracing               = [ "logging", "tracing/tracing-attributes", "tracing/attributes" ]
 
 [dependencies]
 async-trait = "0.1"
-futures = { version = "0.3", optional = true }
-rinf = "8.6.0"
-serde = { version = "1.0", features = ["derive"] }
-tokio = { version = "1.45", optional = true }
-tracing = { version = "0.1", default-features = false, optional = true }
+futures     = { version = "0.3", optional = true }
+rinf        = "8.6.0"
+serde       = { version = "1.0", features = [ "derive" ] }
+tokio       = { version = "1.45", optional = true }
+tracing     = { version = "0.1", default-features = false, optional = true }
 
 [dev-dependencies]
-futures = { version = "0.3" }
+futures     = { version = "0.3" }
 serial_test = "3.2"
 
 [dev-dependencies.tokio]
-version = "1.45"
-features = [
-    "macros",
-    "sync",
-    "time",
-    "rt"
-]
+features = [ "macros", "sync", "time", "rt" ]
+version  = "1.45"
