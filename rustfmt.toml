@@ -1,20 +1,20 @@
-unstable_features = true
+group_imports       = "StdExternalCrate"
 imports_granularity = "One"
-group_imports = "StdExternalCrate"
-imports_layout = "HorizontalVertical"
+imports_layout      = "HorizontalVertical"
+unstable_features   = true
 # Use braces for import groups
 use_field_init_shorthand = true
 
 # Comment formatting
-comment_width = 80
-wrap_comments = true
+comment_width               = 80
 format_code_in_doc_comments = true
-normalize_comments = true
-normalize_doc_attributes = true
+normalize_comments          = true
+normalize_doc_attributes    = true
+wrap_comments               = true
 
 # Additional settings
-format_strings = true
+format_strings             = true
 match_block_trailing_comma = true
-merge_derives = true
-newline_style = "Unix"
-reorder_impl_items = true
+merge_derives              = true
+newline_style              = "Unix"
+reorder_impl_items         = true
