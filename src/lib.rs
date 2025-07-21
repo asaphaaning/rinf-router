@@ -22,16 +22,20 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_in_result, clippy::expect_used))]
 #![cfg_attr(not(test), forbid(unsafe_code))]
 
-use std::{future::Future, pin::Pin};
+use std::convert::Infallible;
 
 pub mod extractor;
 pub mod handler;
 pub mod into_response;
 pub(crate) mod logging;
 pub mod router;
+pub mod service;
 
-/// A boxed [`Future`] returned by any handler.
-type BoxedHandlerFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
+#[cfg(feature = "test-helpers")]
+pub mod test_helpers;
+
+/// Type alias for boxed, clonable services used in RINF router.
+type BoxCloneService = tower::util::BoxCloneService<(), (), Infallible>;
 
 #[doc(hidden)]
 pub use rinf;

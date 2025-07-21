@@ -7,7 +7,7 @@
 //!
 //! ## Examples
 //!
-//! ```rust no_run
+//! ```rust,no_run
 //! use {
 //!     rinf::DartSignal,
 //!     rinf_router::{Router, State},
