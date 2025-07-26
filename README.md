@@ -15,10 +15,10 @@ testable** application logic.
 * Zero-boilerplate extraction of data and shared state
 * Fully async – powered by [`tokio`] and `async`/`await`
 * Runs anywhere [RINF] runs (desktop, mobile, web)
+* `tower` compatibility (Basic features, more to come)
 
 ### Upcoming features
 
-* `tower` compatible
 * Graceful shutdown support
 
 [`tokio`]: https://tokio.rs/
@@ -35,7 +35,7 @@ cargo add rinf-router
 
 A minimal example (run with `cargo run`):
 
-```rust no_run
+```rust,no_run
 use {
     rinf_router::{Router, State},
     rinf::DartSignal,

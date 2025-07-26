@@ -89,10 +89,9 @@ mod private {
 ///
 /// ```rust
 /// ///
-/// use rinf_router::handler::Handler;
 /// use {
 ///     rinf::RustSignal,
-///     rinf_router::into_response::DontSend,
+///     rinf_router::{handler::Handler, into_response::DontSend},
 ///     serde::{Deserialize, Serialize},
 /// };
 ///
@@ -105,11 +104,8 @@ mod private {
 ///     Ok(())
 /// }
 ///
-/// fn assert_handler<T, S, H: Handler<T, S>>(handler: H) -> H {
-///     handler
-/// }
-///
-/// assert_handler::<_, (), _>(handler);
+/// #[cfg(feature = "test-helpers")]
+/// rinf_router::test_helpers::assert_handler::<_, (), _>(handler);
 /// ```
 #[derive(Serialize)]
 pub struct DontSend<T = ()>(pub T);
