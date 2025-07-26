@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.3.0]
+
+### Added
+
+- Tower middleware integration with `handler.layer(middleware)` for composable handler middleware
+- `test-helpers` feature with testing utilities (`TrackingLayer`, `assert_handler`)
+- Service layer abstractions (`Route`, `SignalService`, `BoxCloneService`)
+
+### Internal
+
+- Improved architecture with SignalService as the consistently outermost service layer
+- Comprehensive test coverage for middleware execution order and composition
+
 ## [1.2.0]
 
 ### Added
