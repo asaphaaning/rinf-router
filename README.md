@@ -122,6 +122,45 @@ Router::new()
 
 or by ensuring both handlers share the same state type.
 
+---
+
+## Tower Middleware
+
+Handler-level middleware can be applied using the `.layer()` method for cross-cutting concerns like logging, metrics, or request modification:
+
+```rust,no_run
+use {
+    rinf_router::{Router, handler::Handler},
+    rinf::DartSignal,
+    serde::Deserialize,
+    tower::{service_fn, ServiceBuilder},
+};
+
+#[derive(Deserialize, DartSignal)]
+struct MySignal(String);
+
+async fn my_handler(signal: MySignal) {
+    println!("Handler received: {}", signal.0);
+}
+
+#[tokio::main]
+async fn main() {
+    // Create logging middleware using service_fn
+    let logging_middleware = ServiceBuilder::new()
+        .map_request(|signal: MySignal| {
+            println!("Processing signal: {}", signal.0);
+            signal
+        });
+
+    Router::new()
+        .route(my_handler.layer(logging_middleware)) // 👈 Apply middleware to handler
+        .run()
+        .await;
+}
+```
+
+Middleware executes in **outside-in** order: outer layers wrap inner layers, with the handler at the center.
+
 ## Learn more
 
 Run `cargo doc --open` for the full API reference, including:
