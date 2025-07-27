@@ -14,7 +14,7 @@ license      = "Apache-2.0"
 rust-version = "1.85.0"
 
 [features]
-default               = [ "rt-agnostic" ]
+default               = [ "rt-agnostic", "tokio-rt-multi-thread" ]
 logging               = [ "dep:tracing", "tracing/log" ]
 rt-agnostic           = [ "dep:futures" ]
 test-helpers          = [ "dep:futures" ]
