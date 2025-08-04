@@ -132,12 +132,13 @@ where
     }
 }
 
-#[cfg(all(test, feature = "test-helpers"))]
+#[cfg(test)]
+#[cfg(feature = "test-helpers")]
 mod tests {
     use {
         super::*,
         std::sync::{Arc, Mutex},
-        tower::{Layer, Service},
+        tower::{Service, layer::layer_fn},
     };
 
     // Mock service that counts calls
@@ -176,52 +177,6 @@ mod tests {
         }
     }
 
-    // Mock middleware layer that adds a prefix
-    #[derive(Clone)]
-    struct PrefixLayer {
-        prefix: String,
-    }
-
-    impl PrefixLayer {
-        fn new(prefix: impl Into<String>) -> Self {
-            Self {
-                prefix: prefix.into(),
-            }
-        }
-    }
-
-    impl<S> Layer<S> for PrefixLayer {
-        type Service = PrefixService<S>;
-
-        fn layer(&self, inner: S) -> Self::Service {
-            PrefixService { inner }
-        }
-    }
-
-    #[derive(Clone)]
-    struct PrefixService<S> {
-        inner: S,
-    }
-
-    impl<S> Service<()> for PrefixService<S>
-    where
-        S: Service<(), Response = (), Error = Infallible> + Clone + Send + 'static,
-        S::Future: Send + 'static,
-    {
-        type Error = Infallible;
-        type Future = BoxFuture<'static, Result<(), Infallible>>;
-        type Response = ();
-
-        fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-            self.inner.poll_ready(cx)
-        }
-
-        fn call(&mut self, req: ()) -> Self::Future {
-            let mut inner = self.inner.clone();
-            Box::pin(async move { inner.call(req).await })
-        }
-    }
-
     #[tokio::test]
     async fn test_route_creation_and_calling() {
         let service = CountingService::new();
@@ -237,8 +192,7 @@ mod tests {
     async fn test_route_with_middleware_layer() {
         let service = CountingService::new();
         let route = Route::new(service.clone());
-
-        let layered_route = route.layer(PrefixLayer::new("MIDDLEWARE"));
+        let layered_route = route.layer(layer_fn(std::convert::identity));
         let mut layered_route_clone = layered_route.clone();
 
         layered_route_clone.call(()).await.unwrap();
@@ -251,10 +205,9 @@ mod tests {
     async fn test_multiple_middleware_layers() {
         let service = CountingService::new();
         let route = Route::new(service.clone());
-
         let layered_route = route
-            .layer(PrefixLayer::new("FIRST"))
-            .layer(PrefixLayer::new("SECOND"));
+            .layer(layer_fn(std::convert::identity))
+            .layer(layer_fn(std::convert::identity));
 
         let mut layered_route_clone = layered_route.clone();
         layered_route_clone.call(()).await.unwrap();

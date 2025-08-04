@@ -1,3 +1,5 @@
+#![allow(missing_docs, clippy::expect_used, unsafe_code)]
+
 use {
     rinf::{DartSignal, RustSignal},
     rinf_router::Router,

@@ -39,3 +39,41 @@ serial_test = "3.2"
 [dev-dependencies.tokio]
 features = [ "macros", "sync", "time", "rt" ]
 version  = "1.45"
+
+[lints]
+workspace = true
+
+[workspace.lints.rust]
+missing_docs     = "deny"
+rust_2018_idioms = { level = "warn", priority = -1 }
+unsafe_code      = "deny"
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "warn"
+
+[workspace.lints.clippy]
+module_name_repetitions = "allow"
+new_without_default     = "allow"
+
+# Lower priority to allow clippy.toml override
+expect_used        = "deny"
+missing_panics_doc = "warn"
+unwrap_in_result   = "deny"
+unwrap_used        = { level = "warn", priority = -1 }
+
+cast_lossless                      = "warn"
+checked_conversions                = "warn"
+clone_on_ref_ptr                   = "warn"
+inefficient_to_string              = "warn"
+large_enum_variant                 = "warn"
+large_stack_arrays                 = "warn"
+panic_in_result_fn                 = "warn"
+rc_buffer                          = "warn"
+redundant_clone                    = "warn"
+redundant_closure_for_method_calls = "warn"
+unnecessary_wraps                  = "warn"
+
+cargo       = { level = "warn", priority = -2 }
+correctness = { level = "deny", priority = -2 }
+perf        = { level = "deny", priority = -2 }
+suspicious  = { level = "deny", priority = -2 }

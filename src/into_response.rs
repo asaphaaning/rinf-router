@@ -178,10 +178,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use {
-        super::*,
-        serde::{Deserialize, Serialize},
-    };
+    use super::*;
 
     #[test]
     fn unit_into_response_compiles() {
@@ -206,12 +203,5 @@ mod tests {
         let none: Option<()> = None;
         let resp = none.into_response();
         resp.send_signal_to_dart();
-    }
-
-    #[derive(Serialize, Deserialize)]
-    struct Dummy;
-
-    impl RustSignal for Dummy {
-        fn send_signal_to_dart(&self) {}
     }
 }
