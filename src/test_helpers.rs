@@ -36,7 +36,7 @@ impl Signal {
 }
 
 #[cfg(test)]
-#[allow(clippy::missing_panics_doc)]
+#[allow(clippy::missing_panics_doc, unsafe_code)]
 /// Send a test signal via FFI for testing purposes
 pub fn send_signal(signal: Signal) {
     let msg = rinf::serialize(&signal).expect("postcard serialize");

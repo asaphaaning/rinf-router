@@ -278,7 +278,8 @@ where
     }
 }
 
-#[cfg(all(test, feature = "test-helpers"))]
+#[cfg(test)]
+#[cfg(feature = "test-helpers")]
 mod tests {
     use {
         super::*,
