@@ -30,10 +30,9 @@
 //! }
 //! ```
 
-use {
-    crate::{handler::Handler, logging::log, service::Route},
-    std::marker::PhantomData,
-};
+use std::marker::PhantomData;
+
+use crate::{handler::Handler, logging::log, service::Route};
 
 /// Type-erased [`Handler`] implementation can be wrapped in a
 /// [`Box<dyn ErasedBoxedHandler<S>>`], stored in a collection and executed
@@ -281,14 +280,13 @@ where
 #[cfg(test)]
 #[cfg(feature = "test-helpers")]
 mod tests {
-    use {
-        super::*,
-        crate::{
-            State,
-            test_helpers::{Signal, TrackingLayer, empty, send_signal, signal},
-        },
-        futures::{FutureExt, poll},
-        serial_test::serial,
+    use futures::{FutureExt, poll};
+    use serial_test::serial;
+
+    use super::*;
+    use crate::{
+        State,
+        test_helpers::{Signal, TrackingLayer, empty, send_signal, signal},
     };
 
     async fn stateful_handler(State(state): State<tokio::sync::mpsc::Sender<u8>>, _signal: Signal) {

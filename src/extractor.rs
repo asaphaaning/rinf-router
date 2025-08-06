@@ -8,12 +8,11 @@
 //! ## Examples
 //!
 //! ```rust,no_run
-//! use {
-//!     rinf::DartSignal,
-//!     rinf_router::{Router, State},
-//!     serde::Deserialize,
-//!     std::sync::Arc,
-//! };
+//! use std::sync::Arc;
+//!
+//! use rinf::DartSignal;
+//! use rinf_router::{Router, State};
+//! use serde::Deserialize;
 //!
 //! // Define your application state
 //! #[derive(Clone)]

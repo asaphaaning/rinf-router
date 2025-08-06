@@ -4,13 +4,13 @@
 //! It provides reusable testing utilities for middleware composition and
 //! execution order validation.
 
-use {
-    crate::{handler::Handler, into_response::IntoResponse},
-    futures::future::BoxFuture,
-    rinf::{DartSignal, RustSignal},
-    std::future::Future,
-    tower::{Layer, Service},
-};
+use std::future::Future;
+
+use futures::future::BoxFuture;
+use rinf::{DartSignal, RustSignal};
+use tower::{Layer, Service};
+
+use crate::{handler::Handler, into_response::IntoResponse};
 
 /// Verifies a [`Handler`]
 pub fn assert_handler<T, S, H: Handler<T, S>>(handler: H) -> H {

@@ -15,6 +15,8 @@ pub mod test_helpers;
 /// Type alias for boxed, clonable services used in RINF router.
 type BoxCloneService = tower::util::BoxCloneService<(), (), Infallible>;
 
+pub use extractor::State;
+pub use into_response::IntoResponse;
 #[doc(hidden)]
 pub use rinf;
-pub use {extractor::State, into_response::IntoResponse, router::Router};
+pub use router::Router;

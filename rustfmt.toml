@@ -1,5 +1,5 @@
 group_imports       = "StdExternalCrate"
-imports_granularity = "One"
+imports_granularity = "Crate"
 imports_layout      = "HorizontalVertical"
 unstable_features   = true
 # Use braces for import groups
