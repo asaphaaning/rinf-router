@@ -2,19 +2,19 @@
 //!
 //! Tower service implementations for RINF router.
 
-use {
-    crate::{BoxCloneService, logging::log},
-    futures::future::BoxFuture,
-    rinf::DartSignal,
-    std::{
-        convert::Infallible,
-        future::Future,
-        marker::PhantomData,
-        pin::Pin,
-        task::{Context, Poll},
-    },
-    tower::{Layer, Service},
+use std::{
+    convert::Infallible,
+    future::Future,
+    marker::PhantomData,
+    pin::Pin,
+    task::{Context, Poll},
 };
+
+use futures::future::BoxFuture;
+use rinf::DartSignal;
+use tower::{Layer, Service};
+
+use crate::{BoxCloneService, logging::log};
 
 /// A [`Route`] is a Tower service that represents a single handler route.
 #[derive(Clone)]
@@ -135,11 +135,11 @@ where
 #[cfg(test)]
 #[cfg(feature = "test-helpers")]
 mod tests {
-    use {
-        super::*,
-        std::sync::{Arc, Mutex},
-        tower::{Service, layer::layer_fn},
-    };
+    use std::sync::{Arc, Mutex};
+
+    use tower::{Service, layer::layer_fn};
+
+    use super::*;
 
     // Mock service that counts calls
     #[derive(Clone)]

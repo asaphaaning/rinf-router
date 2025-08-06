@@ -1,13 +1,12 @@
 #![allow(missing_docs, clippy::expect_used, unsafe_code)]
 
-use {
-    rinf::{DartSignal, RustSignal},
-    rinf_router::Router,
-    serde::{Deserialize, Serialize},
-    serial_test::serial,
-    std::{sync::OnceLock, time::Duration},
-    tokio::{sync::mpsc::UnboundedSender, time::timeout},
-};
+use std::{sync::OnceLock, time::Duration};
+
+use rinf::{DartSignal, RustSignal};
+use rinf_router::Router;
+use serde::{Deserialize, Serialize};
+use serial_test::serial;
+use tokio::{sync::mpsc::UnboundedSender, time::timeout};
 
 static ACK_TX: OnceLock<UnboundedSender<()>> = OnceLock::new();
 

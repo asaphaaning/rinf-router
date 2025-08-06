@@ -8,12 +8,12 @@
 //! last arguments are meant for extractors while the last is meant for the Dart
 //! signal**.
 
-use {
-    crate::{extractor::FromRequest, into_response::IntoResponse},
-    futures::future::BoxFuture,
-    rinf::{DartSignal, RustSignal},
-    std::{convert::Infallible, future::Future},
-};
+use std::{convert::Infallible, future::Future};
+
+use futures::future::BoxFuture;
+use rinf::{DartSignal, RustSignal};
+
+use crate::{extractor::FromRequest, into_response::IntoResponse};
 
 /// A thin Service wrapper that holds a Handler and its state.
 pub struct HandlerService<H, T, S> {
@@ -263,19 +263,19 @@ impl_handler!(
 
 #[cfg(all(test, feature = "test-helpers"))]
 mod tests {
-    use {
-        super::*,
-        crate::{
-            State,
-            test_helpers::{EmptySignal, Signal, assert_handler},
-        },
-        serial_test::serial,
-        std::sync::{
-            Arc,
-            Mutex,
-            atomic::{AtomicUsize, Ordering},
-        },
-        tower::ServiceExt,
+    use std::sync::{
+        Arc,
+        Mutex,
+        atomic::{AtomicUsize, Ordering},
+    };
+
+    use serial_test::serial;
+    use tower::ServiceExt;
+
+    use super::*;
+    use crate::{
+        State,
+        test_helpers::{EmptySignal, Signal, assert_handler},
     };
 
     // Compilation tests for various handler signatures

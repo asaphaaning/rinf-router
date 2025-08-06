@@ -21,10 +21,8 @@
 //!
 //! ## Example
 //! ```
-//! use {
-//!     rinf::RustSignal,
-//!     serde::{Deserialize, Serialize},
-//! };
+//! use rinf::RustSignal;
+//! use serde::{Deserialize, Serialize};
 //!
 //! #[derive(Serialize, Deserialize, rinf::DartSignal, rinf::RustSignal)]
 //! struct Ping(String);
@@ -35,10 +33,8 @@
 //! }
 //! ```
 
-use {
-    rinf::RustSignal,
-    serde::{Deserialize, Serialize},
-};
+use rinf::RustSignal;
+use serde::{Deserialize, Serialize};
 
 /// Converts a handler’s return value into a concrete [`RustSignal`] that can be
 /// delivered to Dart.
