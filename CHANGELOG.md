@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.4.0]
+
+### Changed
+
+- Router no longer waits indefinitely for handlers to complete - it races between all handlers completing and Dart runtime shutdown
+- Improved program termination behavior when Flutter UI window is closed via `rinf::dart_shutdown()`
+- Simplified tokio implementation using `JoinSet::join_all()` instead of manual iteration
+
 ## [1.3.0]
 
 ### Added
