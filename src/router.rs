@@ -224,17 +224,20 @@ impl Router {
             });
         }
 
-        while let Some(res) = set.join_next().await {
-            #[allow(clippy::redundant_pattern_matching)]
-            if let Err(_) = res {
-                // Log errors
+        // Race between all handlers completing and dart shutdown
+        tokio::select! {
+            _ = set.join_all() => {
+                log!(info, "All handlers completed");
+            }
+            _ = rinf::dart_shutdown() => {
+                log!(info, "Dart runtime shutting down");
             }
         }
     }
 
     #[cfg(not(any(feature = "tokio-rt", feature = "tokio-rt-multi-thread")))]
     async fn run_with_futures(self) {
-        use futures::StreamExt;
+        use futures::{FutureExt, StreamExt};
 
         let route_futures = self
             .routes
@@ -253,8 +256,19 @@ impl Router {
             })
             .collect::<futures::stream::FuturesUnordered<_>>();
 
-        let mut routes = route_futures;
-        while routes.next().await.is_some() {}
+        let all_handlers_done = async {
+            let mut routes = route_futures;
+            while routes.next().await.is_some() {}
+        };
+
+        futures::select! {
+            _ = all_handlers_done.fuse() => {
+                log!(info, "All handlers completed");
+            }
+            _ = rinf::dart_shutdown().fuse() => {
+                log!(info, "Dart runtime shutting down");
+            }
+        }
     }
 }
 
