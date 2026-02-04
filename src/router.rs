@@ -30,9 +30,10 @@
 //! }
 //! ```
 
-use std::marker::PhantomData;
+use std::{convert::Infallible, marker::PhantomData};
 
-use crate::{handler::Handler, logging::log, service::Route};
+use crate::{handler::Handler, logging::log, service::Route, BoxCloneService};
+use tower::Layer;
 
 /// Type-erased [`Handler`] implementation can be wrapped in a
 /// [`Box<dyn ErasedBoxedHandler<S>>`], stored in a collection and executed
@@ -70,6 +71,27 @@ where
     }
 }
 
+struct LayeredBoxedHandler<S, L> {
+    inner: Box<dyn ErasedBoxedHandler<S>>,
+    layer: L,
+}
+
+impl<S, L> ErasedBoxedHandler<S> for LayeredBoxedHandler<S, L>
+where
+    S: Clone + Send + Sync + 'static,
+    L: Layer<BoxCloneService> + Clone + Send + Sync + 'static,
+    L::Service: tower::Service<(), Response = (), Error = Infallible>
+        + Clone
+        + Send
+        + 'static,
+    <L::Service as tower::Service<()>>::Future: Send + 'static,
+{
+    fn into_route(self: Box<Self>, state: S) -> Route {
+        let route = self.inner.into_route(state);
+        route.layer(self.layer)
+    }
+}
+
 /// Internal enum used by [`Router`] to keep a list of *things that can be
 /// turned into running services*.
 ///
@@ -100,17 +122,13 @@ impl<S> BoxedIntoRoute<S> {
     }
 
     /// Inject concrete application state, producing a spawn-ready route.
-    fn into_route<S2>(self, state: S) -> BoxedIntoRoute<S2>
+    fn into_route(self, state: S) -> Route
     where
         S: Clone + Send + Sync + 'static,
     {
         match self {
-            Self::MakeBoxedHandler(boxed_handler) => {
-                let route = boxed_handler.into_route(state);
-                BoxedIntoRoute::Route(route)
-            },
-
-            BoxedIntoRoute::Route(route) => BoxedIntoRoute::Route(route),
+            Self::MakeBoxedHandler(boxed_handler) => boxed_handler.into_route(state),
+            BoxedIntoRoute::Route(route) => route,
         }
     }
 }
@@ -120,8 +138,8 @@ impl<S> BoxedIntoRoute<S> {
 /// The `Router` type wires up **RINF** signals to asynchronous Rust
 /// handlers.
 ///
-/// There's only a single generic parameter, `S`, that represents **the single
-/// shared state** carried through the whole router tree.
+/// The `Router` has a single generic parameter:
+/// * `S` – the **single shared state** carried through the router tree.
 ///
 /// ```txt
 /// ╔═══════════════════╗                     ╔════════════════╗
@@ -156,7 +174,12 @@ where
             state: PhantomData,
         }
     }
+}
 
+impl<S> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+{
     /// Adds a signal handler to the [`Router`]
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "info"))]
     pub fn route<T: Send + Sync + 'static, H>(mut self, h: H) -> Self
@@ -167,6 +190,81 @@ where
     {
         self.routes.route(BoxedIntoRoute::make::<H, T>(h));
         self
+    }
+
+    /// Apply a Tower layer to all routes in this router.
+    ///
+    /// This works like Axum's `Router::layer`: the layer wraps every existing
+    /// route service registered on this router. Multiple layers compose in
+    /// outside-in order.
+    ///
+    /// `Router::layer` only applies to routes that already exist. Call
+    /// `layer` after the `route(...)` calls you want to wrap. It doesn't
+    /// matter whether `with_state(...)` is called before or after; routes
+    /// added afterwards will not be wrapped.
+    ///
+    /// ```rust,no_run
+    /// use rinf_router::Router;
+    /// use rinf::DartSignal;
+    /// use serde::Deserialize;
+    /// use tower::Layer;
+    ///
+    /// #[derive(Clone)]
+    /// struct GlobalLayer;
+    ///
+    /// impl<S> Layer<S> for GlobalLayer {
+    ///     type Service = S;
+    ///
+    ///     fn layer(&self, inner: S) -> Self::Service {
+    ///         inner
+    ///     }
+    /// }
+    ///
+    /// #[derive(Deserialize, DartSignal)]
+    /// struct Ping;
+    ///
+    /// async fn handler(_signal: Ping) {}
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     Router::new()
+    ///         .route(handler)
+    ///         .layer(GlobalLayer) // applied to existing routes above
+    ///         .run()
+    ///         .await;
+    /// }
+    /// ```
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "info"))]
+    pub fn layer<L>(self, layer: L) -> Self
+    where
+        L: Layer<BoxCloneService> + Clone + Send + Sync + 'static,
+        L::Service: tower::Service<(), Response = (), Error = Infallible>
+            + Clone
+            + Send
+            + 'static,
+        <L::Service as tower::Service<()>>::Future: Send + 'static,
+    {
+        let routes = self
+            .routes
+            .0
+            .into_iter()
+            .map(|route| match route {
+                BoxedIntoRoute::MakeBoxedHandler(boxed_handler) => {
+                    BoxedIntoRoute::MakeBoxedHandler(Box::new(LayeredBoxedHandler {
+                        inner: boxed_handler,
+                        layer: layer.clone(),
+                    }))
+                },
+                BoxedIntoRoute::Route(route) => {
+                    BoxedIntoRoute::Route(route.layer(layer.clone()))
+                },
+            })
+            .collect();
+
+        Router {
+            routes: Routes(routes),
+            state: PhantomData,
+        }
     }
 
     /// Finish registration by providing application state to all routes that
@@ -181,10 +279,7 @@ where
             .routes
             .0
             .into_iter()
-            .map(move |route| match route {
-                BoxedIntoRoute::MakeBoxedHandler(_) => route.into_route(state.clone()),
-                BoxedIntoRoute::Route(route) => BoxedIntoRoute::Route(route),
-            })
+            .map(move |route| BoxedIntoRoute::Route(route.into_route(state.clone())))
             .collect();
 
         Router {
@@ -294,8 +389,11 @@ where
 #[cfg(test)]
 #[cfg(feature = "test-helpers")]
 mod tests {
-    use futures::{FutureExt, poll};
+    use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+
+    use futures::{future::BoxFuture, FutureExt, poll};
     use serial_test::serial;
+    use tower::{Layer, Service};
 
     use super::*;
     use crate::{
@@ -305,6 +403,51 @@ mod tests {
 
     async fn stateful_handler(State(state): State<tokio::sync::mpsc::Sender<u8>>, _signal: Signal) {
         state.send(1).await.unwrap();
+    }
+
+    #[derive(Clone)]
+    struct RouteTrackingLayer {
+        started: Arc<AtomicBool>,
+    }
+
+    impl<S> Layer<S> for RouteTrackingLayer {
+        type Service = RouteTrackingService<S>;
+
+        fn layer(&self, inner: S) -> Self::Service {
+            RouteTrackingService {
+                inner,
+                started: self.started.clone(),
+            }
+        }
+    }
+
+    #[derive(Clone)]
+    struct RouteTrackingService<S> {
+        inner: S,
+        started: Arc<AtomicBool>,
+    }
+
+    impl<S> Service<()> for RouteTrackingService<S>
+    where
+        S: Service<(), Response = (), Error = Infallible> + Clone + Send + 'static,
+        S::Future: Send + 'static,
+    {
+        type Error = Infallible;
+        type Future = BoxFuture<'static, Result<(), Infallible>>;
+        type Response = ();
+
+        fn poll_ready(
+            &mut self,
+            cx: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Result<(), Self::Error>> {
+            self.inner.poll_ready(cx)
+        }
+
+        fn call(&mut self, req: ()) -> Self::Future {
+            self.started.store(true, Ordering::SeqCst);
+            let mut inner = self.inner.clone();
+            Box::pin(async move { inner.call(req).await })
+        }
     }
 
     #[tokio::test]
@@ -365,6 +508,34 @@ mod tests {
             .layer(TrackingLayer::<1>); // Outer layer (executes first)
 
         tokio::spawn(Router::new().route(layered).run());
+
+        // TODO: Find a better way to signal that the router is ready
+        tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
+        send_signal(Signal::new(""));
+        rx.recv().await.unwrap();
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn router_level_middleware_runs_before_handler() {
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<()>(1);
+        let started = Arc::new(AtomicBool::new(false));
+        let started_for_handler = Arc::clone(&started);
+        let handler = move |_signal: Signal| async move {
+            assert!(started_for_handler.load(Ordering::SeqCst));
+            tx.send(()).await.unwrap();
+        };
+
+        let layered = handler
+            .layer(TrackingLayer::<2>) // Inner layer (executes second)
+            .layer(TrackingLayer::<1>); // Outer layer (executes first)
+
+        tokio::spawn(
+            Router::new()
+                .route(layered)
+                .layer(RouteTrackingLayer { started }) // Applies to existing routes
+                .run(),
+        );
 
         // TODO: Find a better way to signal that the router is ready
         tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
