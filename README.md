@@ -15,7 +15,7 @@ testable** application logic.
 * Zero-boilerplate extraction of data and shared state
 * Fully async – powered by [`tokio`] and `async`/`await`
 * Runs anywhere [RINF] runs (desktop, mobile, web)
-* `tower` compatibility (Basic features, more to come)
+* `tower` compatibility
 
 ### Upcoming features
 
@@ -126,7 +126,41 @@ or by ensuring both handlers share the same state type.
 
 ## Tower Middleware
 
-Handler-level middleware can be applied using the `.layer()` method for cross-cutting concerns like logging, metrics, or request modification:
+Router-level middleware can be applied with `Router::layer` to wrap **existing** routes:
+
+```rust,no_run
+use {
+    rinf_router::Router,
+    rinf::DartSignal,
+    serde::Deserialize,
+    std::time::Duration,
+    tower::{ServiceBuilder, limit::RateLimitLayer},
+};
+
+#[derive(Deserialize, DartSignal)]
+struct MySignal(String);
+
+async fn my_handler(_signal: MySignal) {}
+
+#[tokio::main]
+async fn main() {
+    let global = ServiceBuilder::new()
+        .layer(RateLimitLayer::new(100, Duration::from_secs(1)));
+
+    Router::new()
+        .route(my_handler)
+        .layer(global) // 👈 Global middleware for routes above
+        .run()
+        .await;
+}
+```
+
+`Router::layer` only applies to routes that already exist. Add the routes
+you want to wrap before `.layer(...)`. You can call `.with_state(...)` either
+before or after; routes added after `layer` will not be wrapped.
+
+Handler-level middleware can be applied using the `.layer()` method for cross-cutting concerns like logging, metrics, or
+request modification:
 
 ```rust,no_run
 use {
@@ -159,7 +193,8 @@ async fn main() {
 }
 ```
 
-Middleware executes in **outside-in** order: outer layers wrap inner layers, with the handler at the center.
+Middleware executes in **outside-in** order: router-level layers wrap handler-level layers for the routes they apply to,
+with the handler at the center.
 
 ## Learn more
 
@@ -170,4 +205,3 @@ Run `cargo doc --open` for the full API reference, including:
 
 Enjoy – and feel free to open an issue or PR if you spot anything that
 could be improved!
-
