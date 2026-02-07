@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+## [1.5.0]
+
+### Added
+
+- Router-level middleware via `Router::layer(...)` to wrap routes already registered on the router
+- Tests covering router-level middleware execution relative to handler-level layers
+
+### Changed
+
+- Expanded middleware documentation with clearer router-level vs handler-level behavior and ordering
+
 ## [1.4.0]
 
 ### Changed
@@ -79,6 +92,6 @@ rinf-router = { version = "1.2", default-features = false, features = ["tokio-rt
 
 ---
 
-## [1.1.0]
+## [1.0.0]
 
 Initial commit

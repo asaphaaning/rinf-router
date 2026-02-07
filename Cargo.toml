@@ -6,7 +6,7 @@ keywords    = [ "rinf", "flutter", "router" ]
 name        = "rinf-router"
 readme      = "README.md"
 repository  = "https://github.com/asaphaaning/rinf-router"
-version     = "1.4.0"
+version     = "1.5.0"
 
 categories = [ "asynchronous", "rust-patterns" ]
 
